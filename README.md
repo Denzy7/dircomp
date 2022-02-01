@@ -10,8 +10,8 @@ Build with cmake.
 
 operations:
 
-- compress ( `-c [directory]` ) : Compress a directory
-`-o [file] : set an output file to save compressed data`  
+- compress ( `-c [directory]` ) : Compress a directory  
+	- `-o [file]` : set an output file to save compressed data
 
  - decompress( `-d [file]` ) : Decompress file to this directory
 
