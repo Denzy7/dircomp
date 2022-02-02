@@ -18,6 +18,64 @@ typedef struct filenode
 } filenode;
 
 filenode* head = NULL;
+
+#define PATH_SEP "/"
+#ifdef __linux__
+#include <sys/stat.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#endif
+
+int _mkdir(const char* directory)
+{
+    int ok;
+    size_t directory_len = strlen(directory);
+    char* path = strdup(directory);
+    char* path_build = malloc(directory_len);
+    memset(path_build, 0, directory_len);
+
+    char* token;
+
+    //for linux
+    if(path[0] == PATH_SEP[0])
+        strncat(path_build, PATH_SEP, directory_len);
+
+    token = strtok(path, PATH_SEP);
+
+    while( token != NULL ) {
+        strncat(path_build, token, directory_len);
+        strncat(path_build, PATH_SEP, directory_len);
+
+        //syscalls...
+        #ifdef __linux__
+        mkdir(path_build, S_IRWXU);
+        #endif
+
+        #ifdef _WIN32
+        CreateDirectory(path_build, NULL);
+        #endif
+
+        //dengineutils_logging_log("%s", path_build);
+
+        token = strtok(NULL, PATH_SEP);
+    }
+
+    DIR* okdir = opendir(path_build);
+
+    if(okdir)
+    {
+        ok = 1;
+    }else
+    {
+        ok = 0;
+    }
+
+    free(path);
+    free(path_build);
+
+    return ok;
+}
+
 void getfiles(const char* dirstr, uint32_t* count)
 {
     DIR* dir = opendir(dirstr);
@@ -60,7 +118,7 @@ void getfiles(const char* dirstr, uint32_t* count)
 
 int comp(const char* dirstr, const char* out)
 {
-    uint32_t count = 0;
+    uint32_t count = 0;    
     getfiles(dirstr, &count);
 
     if(count)
@@ -208,8 +266,25 @@ int decomp(const char* file)
             printf("decomp raw : %u\n", decomp);
         }
 
+        int offset = 0;
+        if(file_str[0] == '/')  // /home/<usr>/...
+            offset = file_str[0] == '/' ? 1 : 0;
+        else if(file_str[1] == ':' ? 3 : 0) // C:/Users/<usr>/...
+            offset = file_str[1] == ':' ? 3 : 0;
+
         const char* out_file = strrchr(file_str, '/') + 1;
-        FILE* f_out = fopen(out_file, "wb");
+        const char* f_nodrive = file_str + offset;
+        char dir[1024];
+        memset(dir, 0, sizeof(dir));
+        // -1 == / ||
+        strncat(dir, f_nodrive, strlen(f_nodrive) - strlen(out_file));
+        _mkdir(dir);
+
+        char fname[1024];
+        memset(fname, 0, sizeof(fname));
+        snprintf(fname, sizeof(fname), "%s%s", dir, out_file);
+        printf("fn : %s\n", fname);
+        FILE* f_out = fopen(fname, "wb");
         if(f_out)
             fwrite(data_dest, decomp, 1, f_out);
         else
@@ -246,7 +321,7 @@ int main(int argc, char** argv)
     {
         if(!strcmp(argv[i],"-c"))
         {
-            const char* dirstr = NULL;
+            char* dirstr = NULL;
             const char* outfile = NULL;
 
             if(argv[i + 2] && argv[i+3] && !strcmp(argv[i + 2],"-o"))
@@ -261,7 +336,8 @@ int main(int argc, char** argv)
 
             dirstr = argv[i+1];
             printf("will compress dir %s\n", dirstr);
-
+            if(dirstr[strlen(dirstr) - 1] == '/' || dirstr[strlen(dirstr) - 1] == '\\')
+                dirstr[strlen(dirstr) - 1] = 0;
             comp(dirstr, outfile);
         }else if(!strcmp(argv[i],"-d"))
         {
