@@ -274,7 +274,7 @@ int decomp(const char* file)
 
         const char* out_file = strrchr(file_str, '/') + 1;
         const char* f_nodrive = file_str + offset;
-        char dir[1024];
+        char dir[2048];
         memset(dir, 0, sizeof(dir));
         // -1 == / ||
         strncat(dir, f_nodrive, strlen(f_nodrive) - strlen(out_file));
